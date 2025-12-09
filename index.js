@@ -2,7 +2,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const axios = require("axios");
 
 // TOKEN VA KANAL
-const token = "7929409228:AAFqx018RYnGDcA3uVos-RuZov07a3Jx3bQ";
+const token = "7929409228:AAFqx018RYnGDcA3uVos-RuZov07a3Jx3bQ";   // ❗ Tokenni almashtir
 const channel = "@durbekk1";
 const contactUsername = "@durbekk_1";
 const orderLink = "https://web-bot-durbek.vercel.app/";
@@ -16,10 +16,8 @@ const carts = {};
 async function getProducts() {
   try {
     const res = await axios.get("https://durbek-webbot-node-1.onrender.com/api/products");
-
     if (Array.isArray(res.data)) return res.data;
     if (Array.isArray(res.data.products)) return res.data.products;
-
     return [];
   } catch (err) {
     console.log("API ERROR:", err.message);
@@ -36,7 +34,7 @@ async function checkSubscribe(userId) {
       member.status === "administrator" ||
       member.status === "creator"
     );
-  } catch (err) {
+  } catch {
     return false;
   }
 }
@@ -63,6 +61,7 @@ bot.on("message", async (msg) => {
 
   // OBUNA CHECK
   const isSub = await checkSubscribe(userId);
+
   if (!isSub) {
     bot.sendMessage(chatId, "❗ Botdan foydalanish uchun kanalimizga obuna bo‘ling:", {
       reply_markup: {
@@ -75,24 +74,15 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  if (text === "/start") {
-    return sendMainMenu(chatId);
-  }
+  if (text === "/start") return sendMainMenu(chatId);
 
   // === 📕 KATALOG ===
   if (text === "📕 Katalog") {
     const products = await getProducts();
-
-    if (!products.length)
-      return bot.sendMessage(chatId, "❗ Mahsulotlar topilmadi");
+    if (!products.length) return bot.sendMessage(chatId, "❗ Mahsulotlar topilmadi");
 
     for (const p of products) {
-
-      // Rasmni to‘g‘ri olish
-      const img =
-        p.img ||
-        p.image ||
-        (p.images && p.images[0]) ||
+      const img = p.img || p.image || (p.images && p.images[0]) ||
         "https://via.placeholder.com/300?text=No+Image";
 
       await bot.sendPhoto(chatId, img, {
@@ -106,16 +96,13 @@ bot.on("message", async (msg) => {
         }
       });
     }
-
     return;
   }
 
   // === 🛒 SAVAT ===
   if (text === "🛒 Savat") {
     const cart = carts[chatId] || [];
-
-    if (!cart.length)
-      return bot.sendMessage(chatId, "🛒 Savat hozircha bo‘sh");
+    if (!cart.length) return bot.sendMessage(chatId, "🛒 Savat hozircha bo‘sh");
 
     let txt = "🛒 *Savatdagi mahsulotlar:*\n\n";
     cart.forEach(item => {
@@ -128,18 +115,17 @@ bot.on("message", async (msg) => {
         inline_keyboard: [[{ text: "🧹 Savatni tozalash", callback_data: "clear" }]]
       }
     });
-
     return;
   }
 
-  // === 🛍 BUYURTMA ===
+  // === BUYURTMA ===
   if (text === "🛍 Buyurtma berish") {
     bot.sendMessage(chatId, "🛒 Buyurtma berish uchun link:");
     bot.sendMessage(chatId, orderLink);
     return;
   }
 
-  // === ℹ️ BIZ HAQIMIZDA ===
+  // === INFO ===
   if (text === "ℹ️ Biz haqimizda") {
     bot.sendMessage(chatId, "🛍 *apple_nmg_bot* – sifatli telefonlar do‘koni! 🚀", {
       parse_mode: "Markdown"
@@ -147,7 +133,7 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  // === 💬 BOG‘LANISH ===
+  // === CONTACT ===
   if (text === "💬 Bog‘lanish") {
     bot.sendMessage(chatId, `📩 Aloqa: ${contactUsername}`);
     return;
@@ -159,9 +145,12 @@ bot.on("callback_query", async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
 
+  // ✅ callbackga DARHOL javob
+  await bot.answerCallbackQuery(query.id);
+
   const products = await getProducts();
 
-  // === OBUNANI QAYTA TEKSHIRISH ===
+  // === OBUNA QAYTA TEKSHIRISH ===
   if (data === "check_sub") {
     const isSub = await checkSubscribe(query.from.id);
 
@@ -171,38 +160,32 @@ bot.on("callback_query", async (query) => {
     } else {
       bot.sendMessage(chatId, "❗ Hali obuna bo‘lmadingiz");
     }
-
     return;
   }
 
-  // === 🛒 SAVATGA QO‘SHISH ===
+  // === SAVATGA QO‘SHISH ===
   if (data.startsWith("add_")) {
     const id = data.split("_")[1];
     const product = products.find(p => p._id === id);
     if (!product) return;
 
     if (!carts[chatId]) carts[chatId] = [];
-
     const cart = carts[chatId];
     const exist = cart.find(i => i._id === id);
 
     if (exist) exist.count++;
     else cart.push({ ...product, count: 1 });
 
-    bot.answerCallbackQuery(query.id, { text: "🛒 Savatga qo‘shildi!" });
     return;
   }
 
-  // === 📄 BATAFSIL ===
+  // === BATAFSIL ===
   if (data.startsWith("product_")) {
     const id = data.split("_")[1];
     const p = products.find(i => i._id === id);
     if (!p) return;
 
-    const img =
-      p.img ||
-      p.image ||
-      (p.images && p.images[0]) ||
+    const img = p.img || p.image || (p.images && p.images[0]) ||
       "https://via.placeholder.com/300?text=No+Image";
 
     bot.sendPhoto(chatId, img, {
@@ -218,7 +201,6 @@ bot.on("callback_query", async (query) => {
         ]
       }
     });
-
     return;
   }
 
@@ -229,10 +211,7 @@ bot.on("callback_query", async (query) => {
     if (!cart) return;
 
     const item = cart.find(i => i._id === id);
-    if (!item) return;
-
-    item.count++;
-    bot.answerCallbackQuery(query.id, { text: "➕ Soni oshirildi" });
+    if (item) item.count++;
     return;
   }
 
@@ -247,12 +226,10 @@ bot.on("callback_query", async (query) => {
 
     if (item.count > 1) item.count--;
     else cart.splice(cart.indexOf(item), 1);
-
-    bot.answerCallbackQuery(query.id, { text: "➖ Soni kamaytirildi" });
     return;
   }
 
-  // === 🧹 SAVATNI TOZALASH ===
+  // === SAVATNI TOZALASH ===
   if (data === "clear") {
     carts[chatId] = [];
     bot.sendMessage(chatId, "🧹 Savat tozalandi!");
